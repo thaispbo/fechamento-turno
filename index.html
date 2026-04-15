@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#DD1D21">
+  <meta name="description" content="Sistema de fechamento de turnos - Posto Parada Angélica">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fechamento">
+  <title>Posto Parada Angélica</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: #f5f5f5; color: #333; }
+    body { display: flex; flex-direction: column; }
+    .screen { display: none; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 20px; }
+    .screen.active { display: flex; flex-direction: column; }
+    .header { position: sticky; top: 0; background: #DD1D21; color: white; padding: 16px; font-size: 18px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 3px solid #FBCE07; }
+    .header-left, .header-right { display: flex; gap: 8px; align-items: center; }
+    .header-back { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 4px; }
+    .header-back:active { opacity: 0.8; }
+    .content { flex: 1; padding: 16px; overflow-y: auto; }
+    .footer { padding: 16px; text-align: center; font-size: 12px; color: #999; }
+    .role-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 40px; }
+    .role-card { background: white; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; border: 3px solid #ddd; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .role-card.amber { border-color: #FBCE07; }
+    .role-card.blue { border-color: #DD1D21; }
+    .role-card:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .role-icon { font-size: 48px; margin-bottom: 12px; }
+    .role-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; color: #DD1D21; }
+    .role-subtitle { font-size: 14px; color: #666; }
+    .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card-title { font-size: 16px; font-weight: 600; color: #DD1D21; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .card-subtitle { font-size: 12px; color: #999; margin-bottom: 8px; }
+    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #333; }
+    input[type="text"], input[type="number"], input[type="date"], select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 12px; font-family: inherit; }
+    input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, select:focus { outline: none; border-color: #DD1D21; box-shadow: 0 0 0 3px rgba(221, 29, 33, 0.1); }
+    input[type="text"].code-input { font-size: 28px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; text-align: center; font-family: 'Courier New', monospace; }
+    input[type="number"].large { font-size: 24px; font-weight: bold; text-align: center; }
+    button { padding: 14px 16px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; margin-bottom: 12px; }
+    .btn-primary { background: #DD1D21; color: white; }
+    .btn-primary:active { background: #B91C1C; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-secondary:active { background: #d1d5db; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:active { background: #059669; }
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .btn-toggle { background: #e5e7eb; color: #666; padding: 12px 16px; border: 2px solid #ddd; }
+    .btn-toggle.active { background: #DD1D21; color: white; border-color: #DD1D21; }
+    .btn-toggle:active { opacity: 0.9; }
+    .turno-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+    .chips-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .chip { background: #e5e7eb; border: 2px solid #ddd; color: #333; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+    .chip.selected { background: #DD1D21; border-color: #DD1D21; color: white; }
+    .chip.locked { background: #10b981; border-color: #10b981; color: white; cursor: not-allowed; }
+    .chip-count { font-size: 12px; color: #999; margin-top: 8px; }
+    .pumps-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .pumps-table thead { background: #f3f4f6; }
+    .pumps-table th { padding: 8px; font-weight: 600; font-size: 12px; text-align: left; border-bottom: 2px solid #ddd; }
+    .pumps-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .pumps-table input { width: 100%; padding: 6px; margin: 0; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .pumps-table input:focus { outline: none; border-color: #DD1D21; }
+    .pump-label { font-weight: 500; color: #DD1D21; min-width: 40px; }
+    .tanques-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .tanque-item { border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; }
+    .tanque-item label { font-size: 12px; margin-bottom: 4px; }
+    .tanque-item input { margin-bottom: 8px; padding: 8px; }
+    .team-member { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+    .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: #DD1D21; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+    .member-info { flex: 1; }
+    .member-name { font-weight: 600; margin-bottom: 4px; }
+    .member-status { font-size: 12px; color: #666; }
+    .member-diff { font-size: 12px; color: #f59e0b; margin-top: 2px; }
+    .member-diff.ok { color: #10b981; }
+    .member-diff.error { color: #ef4444; }
+    .summary-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .summary-header { cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-weight: 600; color: #DD1D21; }
+    .summary-header:active { opacity: 0.8; }
+    .summary-content { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+    .summary-content.open { display: block; }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+    .summary-row.total { font-weight: 600; color: #DD1D21; padding-top: 8px; border-top: 1px solid #e5e7eb; }
+    .code-display { background: #fffbeb; border: 2px solid #FBCE07; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 16px; }
+    .code-label { font-size: 12px; color: #92400e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .code-text { font-size: 36px; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 4px; color: #78350f; margin-bottom: 12px; }
+    .code-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .code-buttons button { margin-bottom: 0; font-size: 14px; padding: 10px; }
+    .status-sent { color: #10b981; }
+    .status-pending { color: #f59e0b; }
+    .cartao-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+    .cartao-row select, .cartao-row input { margin-bottom: 0; }
+    .remove-row-btn { background: #ef4444; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; min-width: 50px; }
+    .remove-row-btn:active { background: #dc2626; }
+    .add-row-btn { background: #DD1D21; color: white; padding: 10px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; width: 100%; margin-top: 8px; }
+    .add-row-btn:active { background: #2563eb; }
+    .resultado-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+    .resultado-row.total { font-weight: 600; color: #DD1D21; border-bottom: 2px solid #DD1D21; }
+    .resultado-row.diferenca { background: #fef08a; padding: 10px; border-radius: 6px; margin-top: 8px; border: 2px solid #fbbf24; }
+    .resultado-row.diferenca.ok { background: #dcfce7; border-color: #10b981; }
+    .resultado-row.diferenca.error { background: #fee2e2; border-color: #ef4444; }
+    .loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+    .loading.active { display: flex; }
+    .loading-spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top-color: #DD1D21; border-radius: 50%; animation: spin 1s linear infinite; }
+    .loading-text { color: white; margin-top: 12px; font-size: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .success-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; text-align: center; padding: 20px; }
+    .success-icon { font-size: 64px; margin-bottom: 16px; }
+    .success-title { font-size: 24px; font-weight: 600; color: #10b981; margin-bottom: 8px; }
+    .success-message { font-size: 16px; color: #666; margin-bottom: 24px; }
+    .last-updated { font-size: 12px; color: #999; text-align: center; margin: 8px 0; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 12px; padding: 20px; max-width: 400px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+    .modal-content { font-size: 14px; color: #666; margin-bottom: 16px; }
+    .modal-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .modal-buttons button { margin-bottom: 0; }
+    .cfg-container { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .cfg-label { font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 4px; }
+    .cfg-input { font-size: 14px; }
+    .hidden { display: none !important; }
+    .summary-card { background: white; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
+    .summary-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+    .summary-header strong { font-size: 15px; }
+    .summary-header .edit-btn { font-size: 12px; background: #DD1D21; color: white; border: none; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+    .summary-header-info { display: flex; flex-direction: column; gap: 3px; }
+    .mini-summary { font-size: 12px; font-weight: 400; color: #555; margin-top: 2px; }
+    .summary-content { padding: 12px 16px; display: block; }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row.dif-ok { background: #dcfce7; padding: 8px; border-radius: 4px; color: #166534; font-weight: 600; }
+    .summary-row.dif-err { background: #fee2e2; padding: 8px; border-radius: 4px; color: #991b1b; font-weight: 600; }
+    .grand-total-card { background: #DD1D21; color: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .grand-total-card .card-title { color: white; margin-bottom: 12px; }
+    .grand-total-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.2); font-size: 14px; }
+    .grand-total-row:last-child { border-bottom: none; font-size: 16px; font-weight: 700; padding-top: 10px; }
+    .grand-dif-ok { background: #dcfce7; color: #166534; border-radius: 8px; padding: 10px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
+    .grand-dif-err { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 10px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
+    .mt { margin-top: 16px; }
+    .error-message { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fecaca; font-size: 14px; }
+    .cartoes-section { margin-bottom: 12px; }
+    @media (max-width: 480px) { .turno-grid { grid-template-columns: repeat(4, 1fr); } .code-text { font-size: 28px; } }
+
+    /* Conferência list */
+    .conf-shift-card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s; }
+    .conf-shift-card:hover { border-color: #DD1D21; box-shadow: 0 2px 8px rgba(221,29,33,0.12); }
+    .conf-shift-card:active { transform: scale(0.98); }
+    .conf-shift-info { flex: 1; }
+    .conf-shift-title { font-size: 15px; font-weight: 700; color: #111; }
+    .conf-shift-sub { font-size: 13px; color: #666; margin-top: 2px; }
+    .conf-shift-badge { font-size: 12px; background: #dcfce7; color: #166534; border-radius: 20px; padding: 3px 10px; font-weight: 600; }
+
+    /* Print preview content */
+    .print-header { border-bottom: 3px solid #DD1D21; padding-bottom: 12px; margin-bottom: 16px; }
+    .print-title { font-size: 20px; font-weight: 800; color: #DD1D21; letter-spacing: 0.5px; }
+    .print-subtitle { font-size: 13px; color: #444; margin-top: 4px; }
+    .print-stripe { height: 4px; background: #FBCE07; border-radius: 2px; margin-top: 10px; }
+    .print-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    .print-table th { background: #DD1D21; color: white; padding: 8px 10px; text-align: left; font-weight: 600; }
+    .print-table td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
+    .print-table tr:last-child td { border-bottom: none; }
+    .print-table .total-row td { background: #fff7ed; font-weight: 700; border-top: 2px solid #DD1D21; }
+    .print-table .dif-ok { color: #166534; font-weight: 700; }
+    .print-table .dif-err { color: #991b1b; font-weight: 700; }
+    .print-section-title { font-size: 13px; font-weight: 700; color: #DD1D21; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 6px; }
+    .print-footer { margin-top: 20px; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+
+    @media print {
+      .no-print { display: none !important; }
+      .screen { display: none !important; }
+      #screen-print-preview { display: block !important; }
+      #screen-print-preview .content { display: none; }
+      body { background: white; }
+      .print-table th { background: #DD1D21 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-table .total-row td { background: #fff7ed !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .header { display: none !important; }
+      #print-content { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="screen-home" class="screen active">
+  <div class="header" style="background:#DD1D21;flex-direction:column;align-items:flex-start;padding-bottom:12px;gap:0;">
+    <div style="width:100%;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:14px;font-weight:400;letter-spacing:1px;text-transform:uppercase;opacity:0.9;">⛽ Fechamento de Turno</span>
+      <button class="header-back" onclick="cfgTap()" style="font-size:20px;">⚙️</button>
+    </div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:0.5px;margin-top:4px;">Posto Parada Angélica</div>
+    <div style="width:100%;height:4px;background:#FBCE07;border-radius:2px;margin-top:10px;"></div>
+  </div>
+  <div class="content"><div class="role-cards"><div class="role-card amber"><div class="role-icon">🔑</div><div class="role-title">Sou Responsável</div><div class="role-subtitle" style="margin-bottom:14px;">Gerenciar turnos</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;"><button class="btn-primary" style="font-size:13px;padding:10px 8px;margin:0;" onclick="startResp()">➕ Novo Turno</button><button class="btn-secondary" style="font-size:13px;padding:10px 8px;margin:0;border:2px solid #DD1D21;color:#DD1D21;background:white;" onclick="abrirRetornarTurno()">🔓 Retomar Turno</button></div></div><div class="role-card blue" onclick="startFren()"><div class="role-icon">👤</div><div class="role-title">Sou Frentista</div><div class="role-subtitle">Entrar no turno</div></div><div class="role-card" style="border-color:#FBCE07;" onclick="startConferencia()"><div class="role-icon">🖨️</div><div class="role-title" style="color:#92400e;">Conferência</div><div class="role-subtitle">Imprimir fechamentos</div></div></div></div>
+  <div class="footer">v3.0 — Posto Parada Angélica</div>
+</div>
+
+<div id="screen-resp-retomar" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="showScreen('screen-home')">←</button>Retomar Turno</div></div>
+  <div class="content">
+    <div id="retomar-loading" class="card" style="text-align:center;color:#999;padding:24px;">⏳ Buscando turnos em aberto...</div>
+    <div id="retomar-list"></div>
+    <div id="retomar-empty" style="display:none;" class="card" style="text-align:center;color:#999;padding:24px;">
+      <div style="font-size:32px;margin-bottom:12px;">🔒</div>
+      <div>Nenhum turno aberto encontrado para hoje.</div>
+      <button class="btn-secondary" style="margin-top:16px;" onclick="abrirRetornarTurno()">↻ Atualizar</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-resp-info" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="goHome()">←</button>Tipo & Turno</div></div>
+  <div class="content">
+    <div class="card"><div class="card-title">🔥 Tipo de Combustível</div><div class="btn-group"><button class="btn-toggle active" id="btn-gnv" onclick="selectTipo('GNV')">GNV 🔥</button><button class="btn-toggle" id="btn-liquido" onclick="selectTipo('LIQUIDO')">LÍQUIDO 🛢️</button></div></div>
+    <div class="card"><div class="card-title">🕐 Turno</div><div class="turno-grid"><button class="btn-toggle" onclick="selectTurno(1)">1°</button><button class="btn-toggle" onclick="selectTurno(2)">2°</button><button class="btn-toggle" onclick="selectTurno(3)">3°</button><button class="btn-toggle" onclick="selectTurno(4)">4°</button><button class="btn-toggle" onclick="selectTurno(5)">5°</button></div></div>
+    <div class="card"><div class="card-title">📅 Data</div><input type="date" id="data-input" onchange="rData = this.value"></div>
+    <div class="card"><div class="card-title">👤 Responsável</div><select id="resp-select" onchange="rResp = this.value; renderEquipeChips()"><option value="">Selecione...</option></select></div>
+    <div class="card"><div class="card-title">👥 Equipe</div><div id="equipe-chips" class="chips-container"></div><div class="chip-count" id="equipe-count"></div></div>
+    <button class="btn-primary mt" onclick="goToExtras()">Próximo: Encerrante →</button>
+  </div>
+</div>
+
+<div id="screen-resp-extras" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="showScreen('screen-resp-info')">←</button>Encerrante</div></div>
+  <div class="content">
+    <div class="card"><div class="card-title">📊 Total de Vendas (Encerrante)</div><input type="number" id="encerrante-input" class="large" placeholder="0.00" onchange="rEncerranteTotal = parseFloat(this.value) || 0"><div class="card-subtitle">Digite o total de vendas apurado no controle</div></div>
+    <div id="extras-container"></div>
+    <button class="btn-success mt" onclick="criarTurno()">🚀 Abrir Turno</button>
+  </div>
+</div>
+
+<div id="screen-monitor" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="goHome()">←</button><span id="monitor-title">GNV · Turno 1°</span></div></div>
+  <div class="content">
+    <div class="code-display"><div class="code-label">Código do Turno</div><div class="code-text" id="code-display">-</div><div class="code-buttons"><button class="btn-secondary" onclick="copyCode()">📋 Copiar</button><button class="btn-secondary" onclick="shareWhatsApp()">📲 WhatsApp</button></div></div>
+    <div class="card"><div class="card-title">👥 Status da Equipe</div><div id="team-status"></div></div>
+    <div class="last-updated" id="last-updated"></div>
+    <div style="display:flex; gap:12px; margin-bottom:12px;"><button class="btn-secondary" onclick="fillMyData()" style="flex:1;">👤 Meu Fechamento</button><button class="btn-secondary" onclick="refreshMonitor()" style="flex:1;">↻ Atualizar</button></div>
+    <button class="btn-success hidden" id="close-shift-btn" onclick="closeShift()">✅ Fechar Turno</button>
+    <button class="btn-primary hidden" id="unlock-shift-btn" onclick="desbloquearTurno()">🔓 Desbloquear para Frentistas</button>
+  </div>
+</div>
+
+<div id="screen-resp-conf" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="goToMonitor()">←</button>Resumo do Turno</div></div>
+  <div class="content"><div id="conf-cards"></div><button class="btn-success mt" id="btn-fechar-final" onclick="submitFinal()">✅ Confirmar e Fechar Turno</button></div>
+</div>
+
+<div id="screen-conferencia" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="goHome()">←</button>Conferência</div></div>
+  <div class="content">
+    <div id="conf-loading" class="card" style="text-align:center;color:#666;padding:24px;">Carregando turnos...</div>
+    <div id="conf-list"></div>
+  </div>
+</div>
+
+<div id="screen-print-preview" class="screen">
+  <div class="header no-print"><div class="header-left"><button class="header-back" onclick="showScreen('screen-conferencia')">←</button>Pré-visualização</div><div class="header-right"><button onclick="window.print()" style="background:#FBCE07;color:#333;border:none;border-radius:6px;padding:8px 16px;font-weight:700;font-size:14px;cursor:pointer;">🖨️ Imprimir</button></div></div>
+  <div class="content no-print" style="padding:8px 16px 0;"><div style="background:#fffbeb;border:1px solid #FBCE07;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;">💡 Clique em <strong>Imprimir</strong> no canto superior direito. Na janela de impressão, selecione <strong>"Salvar como PDF"</strong> para exportar.</div></div>
+  <div id="print-content" style="padding:16px;"></div>
+</div>
+
+
+<div id="screen-fren-listar" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="goHome()">←</button>Turnos Disponíveis</div><div class="header-right"><button onclick="showScreen('screen-fren-join')" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">🔑 Código</button></div></div>
+  <div class="content"><div id="fren-listar-loading" class="card" style="text-align:center;color:#666;padding:24px;">⏳ Buscando turnos abertos...</div><div id="fren-turnos-list"></div><div id="fren-listar-empty" class="card" style="display:none;text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">🔒</div><div style="font-weight:600;color:#555;">Nenhum turno disponível</div><div style="font-size:13px;color:#999;margin-top:4px;">Aguarde o responsável desbloquear o turno</div><button class="btn-secondary mt" onclick="buscarTurnosAbertos()">↻ Atualizar</button></div></div>
+</div>
+
+<div id="screen-fren-join" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="showScreen('screen-fren-listar')">←</button>Código do Turno</div></div>
+  <div class="content"><div class="card"><div class="card-title">📋 Código do Turno</div><div class="card-subtitle">Digite o código compartilhado pelo responsável</div><input type="text" id="join-code" class="code-input" maxlength="6" placeholder="000000" onchange="this.value = this.value.toUpperCase()"><div id="join-error" class="error-message hidden"></div></div><button class="btn-primary mt" onclick="joinTurno()">Entrar →</button></div>
+</div>
+
+<div id="screen-fren-select" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" onclick="startFren()">←</button>Selecione seu Nome</div></div>
+  <div class="content"><div class="card"><div class="card-title">📍 Turno</div><div id="fren-shift-info"></div></div><div id="fren-list"></div></div>
+</div>
+
+<div id="screen-emp-form" class="screen">
+  <div class="header"><div class="header-left"><button class="header-back" id="emp-form-back" onclick="empFormBack()">←</button><span id="emp-form-name">Funcionário</span></div></div>
+  <div class="content">
+    <div class="card"><div class="card-title">👤 Funcionário</div><label>Nome</label><input type="text" id="emp-nome" readonly style="background:#f3f4f6;color:#999;"><label>Máquina</label><select id="emp-maquina" onchange="efMaquina = this.value"><option value="">Selecione...</option></select></div>
+    <div class="card"><div class="card-title">🖥️ Sistema (Linx)</div><label>Total Vendido (Linx)</label><input type="text" id="emp-linx" readonly style="background:#f3f4f6;color:#555;font-weight:600;"></div>
+    <div class="card"><div class="card-title">💰 Recebimentos</div><label>Moeda</label><input type="number" id="emp-dinheiro" onchange="efDinheiro = parseFloat(this.value) || 0; recalcForm()"><label style="margin-top:12px;">Sangrias</label><div id="sangrias-section"></div><button class="add-row-btn" onclick="addSangriaRow(0)">+ Adicionar Sangria</button><label style="margin-top:12px;">Cartões</label><div class="cartoes-section" id="cartoes-section"></div><button class="add-row-btn" onclick="addCartaoRow('', 0)">+ Adicionar Cartão</button><label style="margin-top:12px;">Notas a Prazo</label><div class="cartoes-section" id="notas-section"></div><button class="add-row-btn" onclick="addNotaRow('', 0)">+ Adicionar Nota</button><label style="margin-top:12px;">Despesas</label><div id="despesas-section"></div><button class="add-row-btn" onclick="addDespesaRow(0,'')">+ Adicionar Despesa</button></div>
+    <div class="card"><div class="card-title">📊 Resultado Individual</div><div class="resultado-row"><span>Total Linx</span><span id="resultado-linx">R$ 0,00</span></div><div class="resultado-row"><span>Total Recebido</span><span id="resultado-recebido">R$ 0,00</span></div><div class="resultado-row diferenca" id="resultado-dif-row"><span>DIFERENÇA</span><span id="resultado-dif">R$ 0,00</span></div></div>
+    <button class="btn-success mt" onclick="saveEmpForm()">✅ Salvar e Enviar</button>
+  </div>
+</div>
+
+<div id="screen-success" class="screen">
+  <div class="content"><div class="success-container"><div class="success-icon" id="success-icon">✅</div><div class="success-title" id="success-title">Enviado!</div><div class="success-message" id="success-message">Seu fechamento foi registrado.</div><button class="btn-primary mt" id="success-btn" onclick="goHome()">Voltar ao Início</button></div></div>
+</div>
+
+<div id="loading" class="loading"><div class="loading-spinner"></div><div class="loading-text" id="loading-text">Carregando...</div></div>
+
+<div id="cfg-modal" class="modal-overlay"><div class="modal"><div class="modal-title">⚙️ Configuração</div><div class="cfg-container"><div class="cfg-label">URL da API (Google Apps Script)</div><input type="text" class="cfg-input" id="cfg-url" placeholder="https://script.google.com/..."></div><div class="modal-buttons"><button class="btn-secondary" onclick="closeCfg()">Cancelar</button><button class="btn-primary" onclick="saveCfg()">Salvar</button></div></div></div>
+
+<div id="confirm-modal" class="modal-overlay"><div class="modal"><div class="modal-title" id="confirm-title">Confirmar</div><div class="modal-content" id="confirm-message"></div><div class="modal-buttons"><button class="btn-secondary" onclick="closeConfirm()">Cancelar</button><button class="btn-primary" id="confirm-btn" onclick="confirmAction()">Confirmar</button></div></div></div>
+
+<div id="conf-login-modal" class="modal-overlay"><div class="modal"><div class="modal-title">🔐 Acesso à Conferência</div><div class="cfg-container"><div class="cfg-label">Login</div><input type="text" class="cfg-input" id="conf-login-user" placeholder="Login" autocomplete="off"><div class="cfg-label" style="margin-top:8px;">Senha</div><input type="password" class="cfg-input" id="conf-login-pass" placeholder="Senha" onkeydown="if(event.key==='Enter')doConfLogin()"><div id="conf-login-error" class="error-message hidden" style="margin-top:8px;">Login ou senha incorretos.</div></div><div class="modal-buttons"><button class="btn-secondary" onclick="document.getElementById('conf-login-modal').classList.remove('active')">Cancelar</button><button class="btn-primary" onclick="doConfLogin()">Entrar</button></div></div></div>
+
+<script>
+const DEFAULT_EMPLOYEES=['Amaro','Antônio','Cicero','Cristiano','Dálva','Elton','Fabio','Fabio Luiz','Gustavo','João','Joadir','Jorge','José Guedes','Karen','Leandro','Marcos Vinicius','Maria Bernadete','Maria José','Phyllyphe','R Oliveira','Roberto','Vanderlei'];
+const DEFAULT_CLIENTS=['A C TRANSPORTADORA SANTOS FERREIRA','ADAMILTON FUNCIONARIO','ALEXANDRE BOMBEIRO','ALTEMAR','ANDERSON MANUTENÇÃO','AROLDO','BAZAR MOREIRA DE PIABETA LTDA','BOM GOSTO 2010 COMERCIO DE ALIMENTO','CAÇULA MADEIRAS MATERIAIS DE CONSTRUÇÃO','CAMILA FERREIRA PORTES LOPES','CANDIDATOS MDB','CARLA MOREIRA','CAROÇO MAUÁ','CCA SERVIÇOS E COMERCIO LTDA','CLAUDINO FUNERÁRIA','CLAUDIO LISTAS','DA COR TINTAS','DEBRITO PROPAGANDA LTDA','DEBYS CAR','DEPUTADO ESTADUAL VINICIUS COZZOLIN','DESPESAS COM CLIENTE','E W BRASIL INDUSTRIA E COMERCIO LTDA','ELEICAO 2024 JANE PEREIRA VEREADOR','ELETROMECÂNICA CAZA','ELETROMECANICA DO MARANHAO LTDA','EVANILDO MATERIAL CONSTRUÇÃO','EXPRESSO DUQUE DE CAXIAS LTDA','F S C DE ANDRADE CONSTRUÇÕES E SERV','FABIO SEGURANÇA','FIBER CONECT SERVICOS DE TELECOMUNI','FIRE HORIZONTAL LTDA','G M F SERVIÇOS E LOCAÇÕES LTDA','GA SUPERMERCADOS LTDA','GENILSON','GUT','HP GIL','INDUSTRIA DE MATERIAL BELICO DO BRASIL','INDUSTRIA PAI E FILHO','JEANE','JOSÉ NOBERTO GUEDES','JUNIOR NOVATO','JURACI DE OLIVEIRA','KARDEC PIX','LL LOCAÇÕES E TRANSPORTES LTDA','LLJ TELECOM LTDA','LUANA','LUCA MATERIAL DE CONSTRUÇÃO LTDA','MAGE MINERAÇÃO LTDA','MARCO ANTONIO - CORUJA','MARCOS CORDEIRO DA SILVA','MERCADO LICOLI COMÉRCIO DE ALIMENTO','MITRA DIOCESANA DE PETROPOLIS (PIAB)','MITRA DIOCESANA DE PETROPOLIS (RAIZ)','PAN-RIO COMERCIAL DE BEBIDAS LTDA','PAULINHO VAN','PEDREIRA','PIARTEPAVI INDUSTRIA E COMERCIO LTDA','PORTUGUES','PR COMÉRCIO E DISTRIBUIDORA DE ALIM','RCA PRODUTOS E SERVIÇOS LTDA','RICARDO VAN','RIO ECF AUTOMAÇÃO COMERCIAL LTDA','SAUVA','SERV SAL DO NORDESTE COM. REPRESENT','SERVICE POSTO COMERCIO DE PEÇAS E M','SERVLOG TELECOM EIRELI EPP','SPAZIO TELECOM LTDA ME','SWX TRANSPORTADORA LTDA','THAIS','THAIS PEREIRA','TRANSPORTADORA LOCADORA E SERVIÇOS','TRANSPORTES SOUZA ARAUJO LTDA','UNIÃO COMERCIAL BARÃO LTDA','V M NASCIMENTO MATERIAIS DE CONST','VALCIR','VALMIR','WILLIAN DA FÉ'];
+const DEFAULT_SCRIPT_URL='https://script.google.com/macros/s/AKfycby0Dpr0TPQyD_5ZOkdSjerob670S7dkVZRTHqesm_8JNNc-pZyPI1p0Jpo-olLCYChB/exec';let scriptUrl=localStorage.getItem('script_url')||DEFAULT_SCRIPT_URL;let empList=JSON.parse(localStorage.getItem('emp_list_v3')||'null')||[...DEFAULT_EMPLOYEES];
+let rTipo=null,rTurno=null,rData='',rResp='',rEquipe=[],rEncerranteTotal=0,rExtras={},rCode=null,monitorInterval=null,rMonitorData=null;
+let confLoggedIn=false;
+let fCode='',fShiftInfo=null,fNome='';
+let empFormContext=null,efMaquina='',efPumps={},efDinheiro=0,efSangrias=[],efCartoes=[],efNotasList=[],efLinxTotal=0,efDespesasList=[],efTotalVendido=0,efTotalRecebido=0,efDiferenca=0;
+let pendingAction=null;
+
+function fmt(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);}
+function generateClientCode(tipo,turno){const t=tipo==='GNV'?'G':'L';const chars='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let code=t+turno;for(let i=0;i<4;i++)code+=chars.charAt(Math.floor(Math.random()*chars.length));return code;}
+function showLoading(msg='Carregando...'){document.getElementById('loading-text').textContent=msg;document.getElementById('loading').classList.add('active');}
+function hideLoading(){document.getElementById('loading').classList.remove('active');}
+function getInitials(name){return name.split(' ').map(w=>w[0]).join('').toUpperCase().substring(0,2);}
+function copyCode(){navigator.clipboard.writeText(rCode).then(()=>{alert('Código copiado!');});}
+function shareWhatsApp(){const msg=encodeURIComponent(`Código do turno: ${rCode}\n\nhttps://seu-dominio.com/app`);window.open(`https://wa.me/?text=${msg}`);}
+function showScreen(id){stopMonitorPolling();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function goHome(){if(rCode||fCode){showConfirm('Voltar?','Você tem um turno em andamento. Deseja realmente sair?',()=>{rCode=null;rTipo=null;rTurno=null;rData='';rResp='';rEquipe=[];rEncerranteTotal=0;rExtras={};rMonitorData=null;fCode='';fShiftInfo=null;fNome='';showScreen('screen-home');});}else{showScreen('screen-home');}}
+function cfgTap(){openCfg();}
+function openCfg(){document.getElementById('cfg-url').value=scriptUrl;document.getElementById('cfg-modal').classList.add('active');}
+function closeCfg(){document.getElementById('cfg-modal').classList.remove('active');}
+function saveCfg(){scriptUrl=document.getElementById('cfg-url').value.trim();localStorage.setItem('script_url',scriptUrl);closeCfg();alert('Configuração salva!');}
+function startResp(){if(!scriptUrl){alert('Configure a URL da API primeiro!');openCfg();return;}const saved=localStorage.getItem('resp_session_v2');if(saved){try{const sess=JSON.parse(saved);if(sess.code&&sess.tipo){if(confirm(`Há um turno em andamento (${sess.tipo} · ${sess.turno}° · ${sess.resp}).\nDeseja continuar onde parou?`)){showLoading('Recuperando turno...');apiGet(sess.code).then(data=>{hideLoading();if(!data.error&&data.status!=='FECHADO'){rCode=sess.code;rTipo=data.tipo||sess.tipo;rTurno=data.turno||sess.turno;rResp=data.responsavel||sess.resp;rData=data.data||sess.data;if(data.equipe)rEquipe=data.equipe;if(data.extras)rExtras=data.extras;rEncerranteTotal=data.encerranteTotal||0;goToMonitor();}else{localStorage.removeItem('resp_session_v2');iniciarNovoTurno();}}).catch(()=>{hideLoading();localStorage.removeItem('resp_session_v2');iniciarNovoTurno();});return;}else{localStorage.removeItem('resp_session_v2');}}}catch(e){localStorage.removeItem('resp_session_v2');}}iniciarNovoTurno();}
+function iniciarNovoTurno(){rTipo=null;rTurno=null;const _nd=new Date();rData=`${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,'0')}-${String(_nd.getDate()).padStart(2,'0')}`;rResp='';rEquipe=[];rEncerranteTotal=0;rExtras={};populateEmpDropdown('resp-select');renderEquipeChips();document.getElementById('data-input').value=rData;document.getElementById('btn-gnv').classList.remove('active');document.getElementById('btn-liquido').classList.remove('active');document.getElementById('btn-gnv').classList.add('active');rTipo='GNV';showScreen('screen-resp-info');}
+function abrirRetornarTurno(){if(!scriptUrl){alert('Configure a URL da API primeiro!');openCfg();return;}showScreen('screen-resp-retomar');const listEl=document.getElementById('retomar-list');const loadEl=document.getElementById('retomar-loading');const emptyEl=document.getElementById('retomar-empty');listEl.innerHTML='';loadEl.classList.remove('hidden');emptyEl.style.display='none';const _nh=new Date();const hoje=`${_nh.getFullYear()}-${String(_nh.getMonth()+1).padStart(2,'0')}-${String(_nh.getDate()).padStart(2,'0')}`;apiPost({tipo:'LISTAR_TURNOS',data:hoje}).then(data=>{loadEl.classList.add('hidden');const abertos=(data.turnos||[]).filter(t=>t.status==='ABERTO'||t.status==='CRIADO');if(abertos.length===0){emptyEl.style.display='block';return;}abertos.forEach(t=>{const dateFmt=t.data?t.data.split('-').reverse().join('/'):'—';const statusBadge=t.status==='ABERTO'?'🔓 Aberto':'🔒 Criado';const card=document.createElement('div');card.className='card';card.style.cursor='pointer';card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:600;color:#DD1D21;">⛽ ${t.tipo} · ${t.turno}° Turno · ${dateFmt}</div><div style="font-size:13px;color:#666;margin-top:4px;">Responsável: ${t.responsavel||'—'} · ${statusBadge}</div></div><button class="btn-primary" style="width:auto;padding:10px 16px;margin:0;font-size:14px;" onclick="conectarTurnoExistente('${t.code}')">Entrar →</button></div>`;listEl.appendChild(card);});}).catch(err=>{loadEl.classList.add('hidden');listEl.innerHTML=`<div class="card" style="color:#ef4444;padding:16px;">Erro ao carregar: ${err.message}</div>`;});}
+function conectarTurnoExistente(code){showLoading('Carregando turno...');apiGet(code).then(data=>{hideLoading();if(data.error){alert('Erro: '+data.error);return;}if(data.status==='FECHADO'){alert('Este turno já foi fechado.');return;}rCode=code;rTipo=data.tipo;rTurno=data.turno;rResp=data.responsavel||'';rData=data.data||new Date().toISOString().split('T')[0];if(data.equipe)rEquipe=data.equipe;if(data.extras)rExtras=data.extras;rEncerranteTotal=data.encerranteTotal||0;localStorage.setItem('resp_session_v2',JSON.stringify({code:rCode,tipo:rTipo,turno:rTurno,resp:rResp,data:rData}));goToMonitor();}).catch(err=>{hideLoading();alert('Erro ao conectar: '+err.message);});}
+function selectTipo(tipo){rTipo=tipo;document.getElementById('btn-gnv').classList.toggle('active',tipo==='GNV');document.getElementById('btn-liquido').classList.toggle('active',tipo==='LIQUIDO');}
+function selectTurno(turno){rTurno=turno;document.querySelectorAll('.turno-grid button').forEach((b,i)=>{b.classList.toggle('active',(i+1)===turno);});}
+function populateEmpDropdown(selectId){const sel=document.getElementById(selectId);sel.innerHTML='<option value="">Selecione...</option>';empList.forEach(e=>{const opt=document.createElement('option');opt.value=e;opt.textContent=e;sel.appendChild(opt);});}
+function renderEquipeChips(){const cont=document.getElementById('equipe-chips');cont.innerHTML='';empList.forEach(name=>{const chip=document.createElement('div');chip.className='chip';if(name===rResp){chip.classList.add('locked');chip.textContent='✅ '+name;chip.style.cursor='not-allowed';}else if(rEquipe.includes(name)){chip.classList.add('selected');chip.textContent='✓ '+name;}else{chip.textContent=name;}chip.onclick=()=>{if(name!==rResp){toggleMembro(name);}};cont.appendChild(chip);});const count=rEquipe.length+(rResp?1:0);document.getElementById('equipe-count').textContent=`${count} frentista(s) selecionado(s)`;}
+function toggleMembro(nome){const idx=rEquipe.indexOf(nome);if(idx>=0){rEquipe.splice(idx,1);}else{rEquipe.push(nome);}renderEquipeChips();}
+function goToExtras(){if(!rTipo||!rTurno||!rResp){alert('Preencha todos os campos obrigatórios');return;}if(!rEquipe.includes(rResp)){rEquipe.push(rResp);}initExtras();showLoading('Carregando medições anteriores...');apiPost({tipo:'ULTIMOS_ENCERRANTES',turnoTipo:rTipo}).then(res=>{hideLoading();if(res.extras){const ext=res.extras;if(rTipo==='GNV'&&ext.ceg){if(ext.ceg.dvb&&ext.ceg.dvb.fin!=null){const el=document.getElementById('ceg-dvb-ini');if(el){el.value=ext.ceg.dvb.fin;rExtras.ceg=rExtras.ceg||{};rExtras.ceg.dvb=rExtras.ceg.dvb||{};rExtras.ceg.dvb.ini=ext.ceg.dvb.fin;}}if(ext.ceg.dvm&&ext.ceg.dvm.fin!=null){const el=document.getElementById('ceg-dvm-ini');if(el){el.value=ext.ceg.dvm.fin;rExtras.ceg=rExtras.ceg||{};rExtras.ceg.dvm=rExtras.ceg.dvm||{};rExtras.ceg.dvm.ini=ext.ceg.dvm.fin;}}if(ext.ceg.mec&&ext.ceg.mec.fin!=null){const el=document.getElementById('ceg-mec-ini');if(el){el.value=ext.ceg.mec.fin;rExtras.ceg=rExtras.ceg||{};rExtras.ceg.mec=rExtras.ceg.mec||{};rExtras.ceg.mec.ini=ext.ceg.mec.fin;}}if(ext.bicos){for(let i=1;i<=6;i++){if(ext.bicos[i]&&ext.bicos[i].fin!=null){const el=document.getElementById(`bico-${i}-ini`);if(el){el.value=ext.bicos[i].fin;rExtras.bicos=rExtras.bicos||{};rExtras.bicos[i]=rExtras.bicos[i]||{};rExtras.bicos[i].ini=ext.bicos[i].fin;}}}}}else if(rTipo!=='GNV'&&ext.medicao){['gc','vp','et','da','s10'].forEach(t=>{if(ext.medicao[t]&&ext.medicao[t].fin!=null){const el=document.getElementById('med-'+t+'-ini');if(el){el.value=ext.medicao[t].fin;rExtras.medicao=rExtras.medicao||{};rExtras.medicao[t]=rExtras.medicao[t]||{};rExtras.medicao[t].ini=ext.medicao[t].fin;}}});}}showScreen('screen-resp-extras');}).catch(()=>{hideLoading();showScreen('screen-resp-extras');});}
+function initExtras(){const cont=document.getElementById('extras-container');cont.innerHTML='';if(rTipo==='GNV'){cont.innerHTML=`<div class="card"><div class="card-title">📈 CEG (Responsável)</div><div class="tanques-grid"><div class="tanque-item"><label>Digital Vb (início)</label><input type="number" id="ceg-dvb-ini" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.dvb = rExtras.ceg.dvb || {}; rExtras.ceg.dvb.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Digital Vb (final)</label><input type="number" id="ceg-dvb-fin" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.dvb = rExtras.ceg.dvb || {}; rExtras.ceg.dvb.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Digital Vm (início)</label><input type="number" id="ceg-dvm-ini" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.dvm = rExtras.ceg.dvm || {}; rExtras.ceg.dvm.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Digital Vm (final)</label><input type="number" id="ceg-dvm-fin" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.dvm = rExtras.ceg.dvm || {}; rExtras.ceg.dvm.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Mecânico (início)</label><input type="number" id="ceg-mec-ini" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.mec = rExtras.ceg.mec || {}; rExtras.ceg.mec.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Mecânico (final)</label><input type="number" id="ceg-mec-fin" onchange="rExtras.ceg = rExtras.ceg || {}; rExtras.ceg.mec = rExtras.ceg.mec || {}; rExtras.ceg.mec.fin = parseFloat(this.value) || 0;"></div></div></div><div class="card"><div class="card-title">⛽ Bicos (GNV)</div><div class="tanques-grid"><div class="tanque-item"><label>B1 (início)</label><input type="number" id="bico-1-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[1]=rExtras.bicos[1]||{};rExtras.bicos[1].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B1 (final)</label><input type="number" id="bico-1-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[1]=rExtras.bicos[1]||{};rExtras.bicos[1].fin=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B2 (início)</label><input type="number" id="bico-2-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[2]=rExtras.bicos[2]||{};rExtras.bicos[2].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B2 (final)</label><input type="number" id="bico-2-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[2]=rExtras.bicos[2]||{};rExtras.bicos[2].fin=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B3 (início)</label><input type="number" id="bico-3-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[3]=rExtras.bicos[3]||{};rExtras.bicos[3].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B3 (final)</label><input type="number" id="bico-3-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[3]=rExtras.bicos[3]||{};rExtras.bicos[3].fin=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B4 (início)</label><input type="number" id="bico-4-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[4]=rExtras.bicos[4]||{};rExtras.bicos[4].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B4 (final)</label><input type="number" id="bico-4-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[4]=rExtras.bicos[4]||{};rExtras.bicos[4].fin=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B5 (início)</label><input type="number" id="bico-5-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[5]=rExtras.bicos[5]||{};rExtras.bicos[5].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B5 (final)</label><input type="number" id="bico-5-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[5]=rExtras.bicos[5]||{};rExtras.bicos[5].fin=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B6 (início)</label><input type="number" id="bico-6-ini" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[6]=rExtras.bicos[6]||{};rExtras.bicos[6].ini=parseFloat(this.value)||0;"></div><div class="tanque-item"><label>B6 (final)</label><input type="number" id="bico-6-fin" onchange="rExtras.bicos=rExtras.bicos||{};rExtras.bicos[6]=rExtras.bicos[6]||{};rExtras.bicos[6].fin=parseFloat(this.value)||0;"></div></div></div>`;}else{cont.innerHTML=`<div class="card"><div class="card-title">📐 Medição de Tanques</div><div class="tanques-grid"><div class="tanque-item"><label>GC (início)</label><input type="number" id="med-gc-ini" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.gc = rExtras.medicao.gc || {}; rExtras.medicao.gc.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>GC (final)</label><input type="number" id="med-gc-fin" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.gc = rExtras.medicao.gc || {}; rExtras.medicao.gc.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>VP (início)</label><input type="number" id="med-vp-ini" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.vp = rExtras.medicao.vp || {}; rExtras.medicao.vp.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>VP (final)</label><input type="number" id="med-vp-fin" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.vp = rExtras.medicao.vp || {}; rExtras.medicao.vp.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>ET (início)</label><input type="number" id="med-et-ini" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.et = rExtras.medicao.et || {}; rExtras.medicao.et.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>ET (final)</label><input type="number" id="med-et-fin" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.et = rExtras.medicao.et || {}; rExtras.medicao.et.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>DA (início)</label><input type="number" id="med-da-ini" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.da = rExtras.medicao.da || {}; rExtras.medicao.da.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>DA (final)</label><input type="number" id="med-da-fin" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.da = rExtras.medicao.da || {}; rExtras.medicao.da.fin = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>S10 (início)</label><input type="number" id="med-s10-ini" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.s10 = rExtras.medicao.s10 || {}; rExtras.medicao.s10.ini = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>S10 (final)</label><input type="number" id="med-s10-fin" onchange="rExtras.medicao = rExtras.medicao || {}; rExtras.medicao.s10 = rExtras.medicao.s10 || {}; rExtras.medicao.s10.fin = parseFloat(this.value) || 0;"></div></div></div><div class="card"><div class="card-title">🚛 Entrada de Combustível</div><div class="tanques-grid"><div class="tanque-item"><label>Gasolina (L)</label><input type="number" id="entr-gas" onchange="rExtras.entradaComb = rExtras.entradaComb || {}; rExtras.entradaComb.gasolina = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Gasolina V (L)</label><input type="number" id="entr-gasv" onchange="rExtras.entradaComb = rExtras.entradaComb || {}; rExtras.entradaComb.gasolinaV = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Etanol (L)</label><input type="number" id="entr-eta" onchange="rExtras.entradaComb = rExtras.entradaComb || {}; rExtras.entradaComb.etanol = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Diesel S500 (L)</label><input type="number" id="entr-ds500" onchange="rExtras.entradaComb = rExtras.entradaComb || {}; rExtras.entradaComb.dieselS500 = parseFloat(this.value) || 0;"></div><div class="tanque-item"><label>Diesel S10 (L)</label><input type="number" id="entr-ds10" onchange="rExtras.entradaComb = rExtras.entradaComb || {}; rExtras.entradaComb.dieselS10 = parseFloat(this.value) || 0;"></div></div></div><div class="card"><div class="card-title">💧 ARLA 32</div><div class="tanques-grid"><div class="tanque-item"><label>Início (L)</label><input type="number" id="arla-ini" onchange="rExtras.arla = rExtras.arla || {}; rExtras.arla.ini = parseFloat(this.value) || 0; calcArla();"></div><div class="tanque-item"><label>Final (L)</label><input type="number" id="arla-fin" onchange="rExtras.arla = rExtras.arla || {}; rExtras.arla.fin = parseFloat(this.value) || 0; calcArla();"></div><div class="tanque-item"><label>Venda (L)</label><input type="number" id="arla-venda" readonly style="background:#f3f4f6;color:#999;"></div></div></div>`;}document.getElementById('encerrante-input').value=rEncerranteTotal;
+// Card Linx por frentista
+rExtras.linxPorFrentista=rExtras.linxPorFrentista||{};
+const linxCard=document.createElement('div');linxCard.className='card';
+let linxHtml=`<div class="card-title">🖥️ Linx por Frentista</div><div class="card-subtitle">Total de vendas do sistema (Linx) de cada um</div>`;
+rEquipe.forEach(nome=>{
+  const safeId='linx_'+nome.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+  linxHtml+=`<label>${nome}</label><input type="number" id="${safeId}" placeholder="0.00" value="${rExtras.linxPorFrentista[nome]||''}" oninput="rExtras.linxPorFrentista['${nome}']=parseFloat(this.value)||0;" onchange="rExtras.linxPorFrentista['${nome}']=parseFloat(this.value)||0;">`;
+});
+linxCard.innerHTML=linxHtml;
+cont.appendChild(linxCard);}
+function calcArla(){if(rExtras.arla){const ini=rExtras.arla.ini||0;const fin=rExtras.arla.fin||0;const venda=ini-fin;rExtras.arla.venda=Math.max(0,venda);document.getElementById('arla-venda').value=rExtras.arla.venda;}}
+function validateExtras(){
+  if(rTipo==='GNV'){
+    const fields=[['ceg-dvb-ini','Digital Vb início'],['ceg-dvb-fin','Digital Vb final'],['ceg-dvm-ini','Digital Vm início'],['ceg-dvm-fin','Digital Vm final'],['ceg-mec-ini','Mecânico início'],['ceg-mec-fin','Mecânico final'],['bico-1-ini','B1 início'],['bico-1-fin','B1 final'],['bico-2-ini','B2 início'],['bico-2-fin','B2 final'],['bico-3-ini','B3 início'],['bico-3-fin','B3 final'],['bico-4-ini','B4 início'],['bico-4-fin','B4 final'],['bico-5-ini','B5 início'],['bico-5-fin','B5 final'],['bico-6-ini','B6 início'],['bico-6-fin','B6 final']];
+    for(const [id,label] of fields){const el=document.getElementById(id);if(!el||el.value.trim()===''){alert(`Preencha o campo obrigatório: ${label}`);el&&el.focus();return false;}}
+  }else{
+    const fields=[['med-gc-ini','GC início'],['med-gc-fin','GC final'],['med-vp-ini','VP início'],['med-vp-fin','VP final'],['med-et-ini','ET início'],['med-et-fin','ET final'],['med-da-ini','DA início'],['med-da-fin','DA final'],['med-s10-ini','S10 início'],['med-s10-fin','S10 final']];
+    for(const [id,label] of fields){const el=document.getElementById(id);if(!el||el.value.trim()===''){alert(`Preencha o campo obrigatório: ${label}`);el&&el.focus();return false;}}
+  }
+  return true;
+}
+function criarTurno(){if(rEncerranteTotal<=0){alert('Informe o encerrante total');return;}if(!validateExtras())return;showLoading('Verificando turno...');apiPost({tipo:'VERIFICAR_DUPLICADO',turnoTipo:rTipo,turno:rTurno,data:rData}).then(res=>{hideLoading();if(res.duplicado){alert(`Já existe um turno ${rTipo} ${rTurno}° fechado para esta data. Não é possível criar outro igual.`);return;}criarTurnoConfirmado();}).catch(()=>{hideLoading();criarTurnoConfirmado();});}
+function criarTurnoConfirmado(){showLoading('Criando turno...');rCode=generateClientCode(rTipo,rTurno);apiPost({tipo:'CRIAR_TURNO',code:rCode,turnoTipo:rTipo,turno:rTurno,data:rData,responsavel:rResp,equipe:rEquipe,encerranteTotal:rEncerranteTotal,extras:rExtras}).then(res=>{hideLoading();if(res.status==='ok'){rCode=res.code;localStorage.setItem('resp_session_v2',JSON.stringify({code:rCode,tipo:rTipo,turno:rTurno,resp:rResp,data:rData}));goToMonitor();}else{alert('Erro: '+res.error);}}).catch(err=>{hideLoading();alert('Erro na requisição: '+err.message);});}
+function goToMonitor(){document.getElementById('monitor-title').textContent=`${rTipo} · Turno ${rTurno}°`;document.getElementById('code-display').textContent=rCode;startMonitorPolling();showScreen('screen-monitor');refreshMonitor();}
+function renderMonitor(data){rMonitorData=data;if(data.equipe&&data.equipe.length>0){rEquipe=data.equipe;rResp=data.responsavel||rResp;rTipo=data.tipo||rTipo;rTurno=data.turno||rTurno;if(data.encerranteTotal>0)rEncerranteTotal=data.encerranteTotal;if(data.extras)rExtras=data.extras;}const teamCont=document.getElementById('team-status');teamCont.innerHTML='';const allMembers=rEquipe.filter(n=>n!==rResp);const submissions=data.submissions||[];const subMap={};submissions.forEach(s=>{subMap[s.nome]=s;});const now=new Date();const lastUpdateTime=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');document.getElementById('last-updated').textContent=`Última atualização: ${lastUpdateTime}`;allMembers.forEach(name=>{const card=document.createElement('div');card.className='team-member';const avatar=document.createElement('div');avatar.className='member-avatar';avatar.textContent=getInitials(name);const info=document.createElement('div');info.className='member-info';const nameEl=document.createElement('div');nameEl.className='member-name';nameEl.textContent=name;const statusEl=document.createElement('div');info.appendChild(nameEl);if(subMap[name]){const sub=subMap[name];statusEl.className='member-status status-sent';statusEl.innerHTML=`✅ Enviado ${sub.timestamp.substring(11,16)}`;const diff=sub.diferenca;const diffEl=document.createElement('div');diffEl.className='member-diff '+(Math.abs(diff)<1?'ok':(diff>0?'error':''));diffEl.textContent=`Diferença: ${fmt(diff)}`;info.appendChild(diffEl);}else{statusEl.className='member-status status-pending';statusEl.innerHTML='⏳ Aguardando';}info.appendChild(statusEl);card.appendChild(avatar);card.appendChild(info);teamCont.appendChild(card);});const allSubmitted=allMembers.every(name=>subMap[name]);const isCriado=data.status==='CRIADO';document.getElementById('close-shift-btn').classList.toggle('hidden',!allSubmitted||isCriado);document.getElementById('unlock-shift-btn').classList.toggle('hidden',!isCriado);}
+function refreshMonitor(){if(!rCode)return;apiGet(rCode).then(data=>{renderMonitor(data);}).catch(err=>{console.error('Refresh error:',err);});}
+function startMonitorPolling(){monitorInterval=setInterval(()=>{refreshMonitor();},30000);}
+function stopMonitorPolling(){if(monitorInterval){clearInterval(monitorInterval);monitorInterval=null;}}
+function fillMyData(){openEmpForm(rResp,'resp');}
+function closeShift(){
+  showLoading('Carregando resumo...');
+  apiGet(rCode).then(data=>{
+    hideLoading();
+    rMonitorData=data;
+    if(data.equipe){rEquipe=data.equipe;rResp=data.responsavel||rResp;rTipo=data.tipo||rTipo;rEncerranteTotal=data.encerranteTotal||rEncerranteTotal;if(data.extras)rExtras=data.extras;}
+    buildConfScreen(false);
+  }).catch(err=>{hideLoading();alert('Erro ao carregar resumo: '+err.message);});
+}
+function buildConfScreen(readOnly){
+  const confCont=document.getElementById('conf-cards');
+  confCont.innerHTML='';
+  const submissions=(rMonitorData&&rMonitorData.submissions)||[];
+  submissions.forEach(sub=>{
+    const cartoes=sub.cartoes||[];
+    const notas=sub.notas||[];
+    const notaTotal=notas.reduce((s,n)=>s+(parseFloat(n.valor)||0),0);
+    const difClass=Math.abs(sub.diferenca)<0.01?'dif-ok':'dif-err';
+    // Agrupar cartões por tipo/máquina
+    const cartMap={};cartoes.forEach(c=>{const k=c.tipo||'Outros';cartMap[k]=(cartMap[k]||0)+(parseFloat(c.valor)||0);});
+    const cartRows=Object.entries(cartMap).map(([t,v])=>`<div class="summary-row" style="padding-left:12px;font-size:13px;color:#555;"><span>↳ ${t}</span><span>${fmt(v)}</span></div>`).join('');
+    const cartTotal=cartoes.reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
+    const notaRows=notas.map(n=>`<div class="summary-row" style="padding-left:12px;font-size:13px;color:#555;"><span>↳ ${n.cliente||'?'}</span><span>${fmt(parseFloat(n.valor)||0)}</span></div>`).join('');
+    const card=document.createElement('div');
+    card.className='summary-card';
+    const _difColor=Math.abs(sub.diferenca||0)<0.01?'#10b981':'#ef4444';const _difIcon=Math.abs(sub.diferenca||0)<0.01?'✅':'⚠️';
+    const sangrias=sub.sangrias||[];const sangriaTotal=sangrias.reduce((s,x)=>s+(parseFloat(x.valor)||0),0);const sangriaRows=sangrias.map((x,i)=>`<div class="summary-row" style="padding-left:12px;font-size:13px;color:#555;"><span>↳ Sangria ${i+1}</span><span>${fmt(parseFloat(x.valor)||0)}</span></div>`).join('');const despLista=sub.despesasDetalhadas||[];const despRows=despLista.length>0?despLista.map(d=>`<div class="summary-row" style="padding-left:12px;font-size:13px;color:#555;"><span>↳ ${d.desc||'Despesa'}</span><span>-${fmt(parseFloat(d.valor)||0)}</span></div>`).join(''):sub.despesas>0?`<div class="summary-row" style="padding-left:12px;font-size:13px;color:#555;"><span>↳ Despesas</span><span>-${fmt(sub.despesas||0)}</span></div>`:'';
+    card.innerHTML=`<div class="summary-header"><div class="summary-header-info"><strong>👤 ${sub.nome}</strong><div class="mini-summary"><span style="color:${_difColor};font-weight:600;">${_difIcon} Diferença: ${fmt(sub.diferenca||0)}</span></div></div>${!readOnly?`<button class="edit-btn" onclick="editFrentista('${sub.nome}')">✏️ Editar</button>`:''}</div><div class="summary-content"><div class="summary-row"><span>Linx</span><strong>${fmt(sub.linxTotal||0)}</strong></div><div class="summary-row"><span>Moeda (caixa)</span><span>${fmt(sub.dinheiro||0)}</span></div>${sangriaTotal>0?`<div class="summary-row"><span>Sangrias</span><span>${fmt(sangriaTotal)}</span></div>${sangriaRows}`:''}<div class="summary-row"><span>Cartões (total)</span><span>${fmt(cartTotal)}</span></div>${cartRows}${notaTotal>0?`<div class="summary-row"><span>Notas a Prazo</span><span>${fmt(notaTotal)}</span></div>${notaRows}`:''}${sub.despesas>0||despLista.length>0?`<div class="summary-row"><span>Despesas</span><span>-${fmt(sub.despesas||0)}</span></div>${despRows}`:''}<div class="summary-row" style="font-weight:600;border-top:2px solid #e5e7eb;margin-top:4px;padding-top:8px;"><span>Total Recebido</span><span>${fmt(sub.totalRecebido||0)}</span></div><div class="summary-row ${difClass}" style="margin-top:4px;"><span>DIFERENÇA</span><span>${fmt(sub.diferenca||0)}</span></div></div>`;
+    confCont.appendChild(card);
+  });
+  const totalDinheiro=submissions.reduce((s,sub)=>s+(sub.dinheiro||0),0);
+  const totalCartoes=submissions.reduce((s,sub)=>s+((sub.cartoes||[]).reduce((ss,c)=>ss+(parseFloat(c.valor)||0),0)),0);
+  const totalNotas=submissions.reduce((s,sub)=>s+((sub.notas||[]).reduce((ss,n)=>ss+(parseFloat(n.valor)||0),0)),0);
+  const totalDespesas=submissions.reduce((s,sub)=>s+(sub.despesas||0),0);
+  const totalRecebido=submissions.reduce((s,sub)=>s+(sub.totalRecebido||0),0);
+  const enc=rMonitorData?rMonitorData.encerranteTotal||rEncerranteTotal:rEncerranteTotal;
+  const difTotal=totalRecebido-enc;
+  const difClass=Math.abs(difTotal)<0.01?'grand-dif-ok':'grand-dif-err';
+  const grand=document.createElement('div');
+  grand.className='grand-total-card';
+  grand.innerHTML=`<div class="card-title">📊 RESUMO GERAL</div><div class="grand-total-row"><span>Encerrante (controle)</span><strong>${fmt(enc)}</strong></div><div class="grand-total-row"><span>Total Moeda</span><strong>${fmt(totalDinheiro)}</strong></div><div class="grand-total-row"><span>Total Cartões</span><strong>${fmt(totalCartoes)}</strong></div><div class="grand-total-row"><span>Total Notas a Prazo</span><strong>${fmt(totalNotas)}</strong></div><div class="grand-total-row"><span>Total Despesas</span><strong>-${fmt(totalDespesas)}</strong></div><div class="grand-total-row"><span>TOTAL RECEBIDO</span><strong>${fmt(totalRecebido)}</strong></div><div class="${difClass}"><span>DIFERENÇA FINAL</span><span>${fmt(difTotal)}</span></div>`;
+  confCont.appendChild(grand);
+  const btnFechar=document.getElementById('btn-fechar-final');
+  if(btnFechar){btnFechar.classList.toggle('hidden',readOnly);}
+  showScreen('screen-resp-conf');
+}
+function editFrentista(nome){openEmpForm(nome,'resp');}
+function submitFinal(){showLoading('Fechando turno...');apiPost({tipo:'FECHAR_TURNO',code:rCode,turnoTipo:rTipo}).then(res=>{hideLoading();if(res.status==='ok'){stopMonitorPolling();localStorage.removeItem('resp_session_v2');rCode=null;rMonitorData=null;showSuccess('Turno Fechado!','Fechamento realizado com sucesso!');}else{alert('Erro: '+res.error);}}).catch(err=>{hideLoading();alert('Erro: '+err.message);});}
+function doConfLogin(){const user=document.getElementById('conf-login-user').value.trim();const pass=document.getElementById('conf-login-pass').value;if(user==='adm'&&pass==='1234'){confLoggedIn=true;document.getElementById('conf-login-modal').classList.remove('active');loadConferencia();}else{document.getElementById('conf-login-error').classList.remove('hidden');}}
+function startConferencia(){
+  if(!confLoggedIn){document.getElementById('conf-login-user').value='';document.getElementById('conf-login-pass').value='';document.getElementById('conf-login-error').classList.add('hidden');document.getElementById('conf-login-modal').classList.add('active');return;}
+  loadConferencia();}
+function loadConferencia(){
+  showScreen('screen-conferencia');
+  const listEl=document.getElementById('conf-list');
+  const loadEl=document.getElementById('conf-loading');
+  listEl.innerHTML='';
+  loadEl.classList.remove('hidden');
+  apiPost({tipo:'LISTAR_TURNOS'}).then(data=>{
+    loadEl.classList.add('hidden');
+    if(!data.turnos||data.turnos.length===0){
+      listEl.innerHTML='<div class="card" style="text-align:center;color:#999;padding:24px;">Nenhum turno encontrado.</div>';
+      return;
+    }
+    data.turnos.forEach(t=>{
+      const card=document.createElement('div');
+      card.className='conf-shift-card';
+      const dateFmt=t.data?t.data.split('-').reverse().join('/'):'—';
+      const statusBadge=t.status==='FECHADO'?'<span class="conf-shift-badge">✅ Fechado</span>':t.status==='ABERTO'?'<span class="conf-shift-badge" style="background:#fef3c7;color:#92400e;border-color:#fbbf24;">🔓 Aberto</span>':'<span class="conf-shift-badge" style="background:#e5e7eb;color:#374151;border-color:#9ca3af;">🔒 Criado</span>';
+      const closeBtn=t.status!=='FECHADO'?`<button onclick="event.stopPropagation();fecharTurnoConf('${t.code}','${t.tipo} ${t.turno}° · ${dateFmt}')" style="background:#10b981;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:600;">✔ Fechar</button>`:'';
+      card.innerHTML=`<div class="conf-shift-info" style="cursor:pointer;" onclick="openForPrint('${t.code}')"><div class="conf-shift-title">⛽ ${t.tipo} · ${t.turno}° Turno · ${dateFmt}</div><div class="conf-shift-sub">Responsável: ${t.responsavel||'—'} · Cód: <strong>${t.code}</strong></div></div><div style="display:flex;align-items:center;gap:8px;">${statusBadge}${closeBtn}<button onclick="event.stopPropagation();deletarTurno('${t.code}','${t.tipo} ${t.turno}° · ${dateFmt}')" style="background:#ef4444;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:600;">🗑️</button></div>`;
+      listEl.appendChild(card);
+    });
+  }).catch(err=>{
+    loadEl.classList.add('hidden');
+    listEl.innerHTML=`<div class="error-message">Erro ao carregar: ${err.message}</div>`;
+  });
+}
+function fecharTurnoConf(code,label){showConfirm('Fechar Turno',`Deseja fechar o turno ${label} agora? O fechamento será calculado com os dados já enviados.`,()=>{showLoading('Fechando turno...');apiPost({tipo:'FECHAR_TURNO',code:code,turnoTipo:null}).then(res=>{hideLoading();if(res.status==='ok'){loadConferencia();}else{alert('Erro ao fechar: '+(res.error||res.message));}}).catch(err=>{hideLoading();alert('Erro: '+err.message);});});}
+
+function deletarTurno(code,label){showConfirm('Excluir Turno',`Deseja excluir permanentemente o turno ${label}? Esta ação não pode ser desfeita.`,()=>{showLoading('Excluindo turno...');apiPost({tipo:'DELETAR_TURNO',code:code}).then(res=>{hideLoading();if(res.status==='ok'){loadConferencia();}else{alert('Erro ao excluir: '+(res.message||res.error));}}).catch(err=>{hideLoading();alert('Erro: '+err.message);});});}
+function openForPrint(code){
+  showLoading('Carregando dados...');
+  apiGet(code).then(data=>{
+    hideLoading();
+    if(data.error){alert('Erro: '+data.error);return;}
+    buildPrintPreview(data);
+    showScreen('screen-print-preview');
+  }).catch(err=>{hideLoading();alert('Erro: '+err.message);});
+}
+
+function buildPrintPreview(data){
+  const subs=data.submissions||[];
+  // Data: extrai só dd/mm/yyyy, compatível com ISO e outros formatos
+  let dateFmt='—';
+  if(data.data){const d=String(data.data);const dateOnly=d.split('T')[0];if(/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)){dateFmt=dateOnly.split('-').reverse().join('/');}else{dateFmt=d;}}
+  const isGNV=data.tipo==='GNV';
+  const enc=parseFloat(data.encerranteTotal)||0;
+  const extras=data.extras||{};
+
+  // === COMBUSTÍVEL: medição de tanques (LIQUIDO) ou CEG (GNV) ===
+  let combustivelRows='';
+  if(isGNV){
+    const ceg=extras.ceg||{};
+    [['Digital Vb','dvb'],['Digital Vm','dvm'],['Mecânico','mec']].forEach(([label,key])=>{
+      const r=ceg[key]||{};
+      const ini=r.ini!=null&&r.ini!==''?r.ini:'';
+      const fin=r.fin!=null&&r.fin!==''?r.fin:'';
+      combustivelRows+=`<tr><td>${label}</td><td style="text-align:right;">${ini}</td><td style="text-align:right;">${fin}</td><td style="text-align:right;">—</td></tr>`;
+    });
+    const bicos=extras.bicos||{};
+    for(let b=1;b<=6;b++){
+      const bico=bicos[b]||{};
+      const ini=bico.ini!=null&&bico.ini!==''?bico.ini:'';
+      const fin=bico.fin!=null&&bico.fin!==''?bico.fin:'';
+      const venda=(ini!==''&&fin!=='')?Number(fin)-Number(ini):'—';
+      combustivelRows+=`<tr><td>Bico ${b}</td><td style="text-align:right;">${ini}</td><td style="text-align:right;">${fin}</td><td style="text-align:right;">${venda}</td></tr>`;
+    }
+  }else{
+    const med=extras.medicao||{};
+    const entr=extras.entradaComb||{};
+    const arla=extras.arla||{};
+    [['GASOLINA','gc','gasolina'],['V POWER','vp','gasolinaV'],['ETANOL','et','etanol'],['DIESEL S500','da','dieselS500'],['DIESEL S10','s10','dieselS10']].forEach(([label,mkey,ekey])=>{
+      const m=med[mkey]||{};
+      const rec=parseFloat(entr[ekey])||0;
+      combustivelRows+=`<tr><td>${label}</td><td style="text-align:right;">${m.ini!=null&&m.ini!==''&&m.ini!==0?m.ini:''}</td><td style="text-align:right;">${m.fin!=null&&m.fin!==''&&m.fin!==0?m.fin:''}</td><td style="text-align:right;">${rec>0?rec:'—'}</td></tr>`;
+    });
+    combustivelRows+=`<tr><td>ARLA 32</td><td style="text-align:right;">${arla.ini||''}</td><td style="text-align:right;">${arla.fin||''}</td><td style="text-align:right;">—</td></tr>`;
+  }
+
+  // === TOTAIS GERAIS ===
+  let totLinx=0,totDin=0,totCart=0,totNotas=0,totRec=0;
+  subs.forEach(s=>{
+    totLinx+=parseFloat(s.linxTotal)||0;
+    totDin+=parseFloat(s.dinheiro)||0;
+    totCart+=(s.cartoes||[]).reduce((a,c)=>a+(parseFloat(c.valor)||0),0);
+    totNotas+=(s.notas||[]).reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+    totRec+=parseFloat(s.totalRecebido)||0;
+  });
+  const difTotal=totRec-enc;
+  const difClass=Math.abs(difTotal)<0.01?'dif-ok':'dif-err';
+
+  // === TOTAL DE VENDA: agrupado por máquina, colunas por tipo ===
+  const machineMap={};
+  const specialTotals={shellBox:0,fitCard:0};
+  subs.forEach(s=>{
+    const maq=s.maquina||'—';
+    if(!machineMap[maq])machineMap[maq]={credDeb:0,pix:0,voucher:0,outros:0,total:0};
+    (s.cartoes||[]).forEach(c=>{
+      const v=parseFloat(c.valor)||0;
+      machineMap[maq].total+=v;
+      if(['REDE Créd+Déb','REDE CRÉDITO','REDE DÉBITO','CIELO','CIELO CRÉDITO','CIELO DÉBITO','STONE'].includes(c.tipo)){machineMap[maq].credDeb+=v;}
+      else if(['REDE PIX','CIELO PIX','STONE PIX'].includes(c.tipo)){machineMap[maq].pix+=v;}
+      else if(['VOUCHER','CIELO VOUCHER','REDE VOUCHER'].includes(c.tipo)){machineMap[maq].voucher+=v;}
+      else if(['SHEL BOX','SHELL BOX'].includes(c.tipo)){specialTotals.shellBox+=v;}
+      else if(['FIT CARD','FITCARD'].includes(c.tipo)){specialTotals.fitCard+=v;}
+      else{machineMap[maq].outros+=v;}
+    });
+  });
+  let cardRowsHtml='';
+  let totCredDeb=0,totPix=0,totVoucher=0,totMachTotal=0;
+  Object.keys(machineMap).sort().forEach(maq=>{
+    const m=machineMap[maq];
+    totCredDeb+=m.credDeb;totPix+=m.pix;totVoucher+=m.voucher;totMachTotal+=m.total;
+    cardRowsHtml+=`<tr>
+      <td style="font-weight:600;color:#DD1D21;">${maq}</td>
+      <td style="text-align:right;">${m.credDeb>0?fmt(m.credDeb):'—'}</td>
+      <td style="text-align:right;">${m.pix>0?fmt(m.pix):'—'}</td>
+      <td style="text-align:right;">${m.voucher>0?fmt(m.voucher):'—'}</td>
+      <td style="text-align:right;font-weight:600;">${fmt(m.total)}</td>
+    </tr>`;
+  });
+  if(!cardRowsHtml)cardRowsHtml=`<tr><td colspan="5" style="color:#999;text-align:center;">Nenhum pagamento registrado</td></tr>`;
+  cardRowsHtml+=`<tr class="total-row">
+    <td style="font-weight:700;">TOTAL</td>
+    <td style="text-align:right;font-weight:700;">${totCredDeb>0?fmt(totCredDeb):'—'}</td>
+    <td style="text-align:right;font-weight:700;">${totPix>0?fmt(totPix):'—'}</td>
+    <td style="text-align:right;font-weight:700;">${totVoucher>0?fmt(totVoucher):'—'}</td>
+    <td style="text-align:right;font-weight:700;">${fmt(totMachTotal)}</td>
+  </tr>`;
+  const specialHtml=(specialTotals.shellBox>0||specialTotals.fitCard>0)?`
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${specialTotals.shellBox>0?`<div style="background:#DD1D21;color:white;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:700;">SHELL BOX &nbsp;${fmt(specialTotals.shellBox)}</div>`:''}
+      ${specialTotals.fitCard>0?`<div style="background:#DD1D21;color:white;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:700;">FITCARD &nbsp;${fmt(specialTotals.fitCard)}</div>`:''}
+    </div>`:'';
+
+  // === NOTAS A PRAZO ===
+  let notasHtml='';
+  subs.forEach(s=>{
+    (s.notas||[]).forEach(n=>{
+      notasHtml+=`<tr>
+        <td>${n.cliente||'—'}</td>
+        <td style="text-align:right;">${fmt(parseFloat(n.valor)||0)}</td>
+        <td>${s.nome}</td>
+      </tr>`;
+    });
+  });
+  if(!notasHtml)notasHtml='<tr><td colspan="3" style="color:#999;text-align:center;">Nenhuma nota</td></tr>';
+
+  // === DESPESAS ===
+  let despesasHtml='';
+  let totDesp=0;
+  subs.forEach(s=>{
+    const despLista=s.despesasDetalhadas||[];
+    if(despLista.length>0){
+      despLista.forEach(d=>{
+        const v=parseFloat(d.valor)||0;totDesp+=v;
+        despesasHtml+=`<tr><td>${d.desc||'—'}</td><td style="text-align:right;">${fmt(v)}</td><td>${s.nome}</td></tr>`;
+      });
+    } else if((s.despesas||0)>0){
+      const v=parseFloat(s.despesas)||0;totDesp+=v;
+      despesasHtml+=`<tr><td>Despesas</td><td style="text-align:right;">${fmt(v)}</td><td>${s.nome}</td></tr>`;
+    }
+  });
+  if(!despesasHtml)despesasHtml='<tr><td colspan="3" style="color:#999;text-align:center;">Nenhuma despesa</td></tr>';
+
+  // === RESUMO INDIVIDUAL ===
+  const indivRows=subs.map(s=>{
+    const cart=(s.cartoes||[]).reduce((a,c)=>a+(parseFloat(c.valor)||0),0);
+    const nota=(s.notas||[]).reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+    const desp=parseFloat(s.despesas)||0;
+    const dif=parseFloat(s.diferenca)||0;
+    const dc=Math.abs(dif)<0.01?'dif-ok':'dif-err';
+    return `<tr>
+      <td><strong>${s.nome}</strong></td>
+      <td style="text-align:right;">${fmt(s.linxTotal||0)}</td>
+      <td style="text-align:right;">${fmt(cart)}</td>
+      <td style="text-align:right;">${fmt(s.dinheiro||0)}</td>
+      <td style="text-align:right;">${fmt(nota)}</td>
+      <td style="text-align:right;">${desp>0?fmt(desp):'—'}</td>
+      <td style="text-align:right;"><strong>${fmt(s.totalRecebido||0)}</strong></td>
+      <td style="text-align:right;" class="${dc}">${fmt(dif)}</td>
+    </tr>`;
+  }).join('');
+
+  const now=new Date().toLocaleString('pt-BR');
+  const html=`
+    <div class="print-header">
+      <div class="print-title">POSTO PARADA ANGÉLICA</div>
+      <div class="print-stripe"></div>
+    </div>
+
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <tbody>
+        <tr>
+          <td style="width:20%;font-weight:600;">DATA</td>
+          <td style="width:30%;">${dateFmt}</td>
+          <td style="width:25%;font-weight:600;">RESPONSÁVEL</td>
+          <td style="width:25%;">${data.responsavel||'—'}</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">TURNO</td>
+          <td>${data.turno}° · ${data.tipo}</td>
+          <td style="font-weight:600;">CÓDIGO</td>
+          <td>${data.code}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="print-section-title">COMBUSTÍVEL</div>
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <thead><tr>
+        <th style="text-align:left;">COMBUSTÍVEL / BICO</th>
+        <th style="text-align:right;">INICIAL</th>
+        <th style="text-align:right;">FINAL</th>
+        <th style="text-align:right;">VENDA / REC.</th>
+      </tr></thead>
+      <tbody>${combustivelRows}</tbody>
+    </table>
+
+    <div class="print-section-title">RESUMO TOTAL</div>
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <thead><tr>
+        <th>TURNO</th>
+        <th style="text-align:right;">VENDA SISTEMA</th>
+        <th style="text-align:right;">CARTÃO</th>
+        <th style="text-align:right;">MOEDA</th>
+        <th style="text-align:right;">NOTA</th>
+        <th style="text-align:right;">DESPESAS</th>
+        <th style="text-align:right;">TOTAL</th>
+        <th style="text-align:right;">DIFERENÇA</th>
+      </tr></thead>
+      <tbody>
+        <tr class="total-row">
+          <td>${data.turno}°</td>
+          <td style="text-align:right;">${fmt(totLinx)}</td>
+          <td style="text-align:right;">${fmt(totCart)}</td>
+          <td style="text-align:right;">${fmt(totDin)}</td>
+          <td style="text-align:right;">${fmt(totNotas)}</td>
+          <td style="text-align:right;">${totDesp>0?fmt(totDesp):'—'}</td>
+          <td style="text-align:right;"><strong>${fmt(totRec)}</strong></td>
+          <td style="text-align:right;" class="${difClass}">${fmt(difTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="print-section-title">TOTAL DE VENDA</div>
+    <table class="print-table" style="margin-bottom:8px;width:100%;">
+      <thead><tr>
+        <th style="text-align:left;">CARTÃO</th>
+        <th style="text-align:right;">CRÉDITO/DÉBITO</th>
+        <th style="text-align:right;">PIX</th>
+        <th style="text-align:right;">VOUCHER</th>
+        <th style="text-align:right;">TOTAL</th>
+      </tr></thead>
+      <tbody>${cardRowsHtml}</tbody>
+    </table>
+    ${specialHtml}
+
+    <div class="print-section-title" style="margin-top:16px;">NOTAS A PRAZO</div>
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <thead><tr>
+        <th style="text-align:left;">CLIENTE</th>
+        <th style="text-align:right;">VALOR</th>
+        <th style="text-align:left;">FRENTISTA RESPONSÁVEL</th>
+      </tr></thead>
+      <tbody>${notasHtml}</tbody>
+    </table>
+
+    <div class="print-section-title">DESPESAS</div>
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <thead><tr>
+        <th style="text-align:left;">DESCRIÇÃO</th>
+        <th style="text-align:right;">VALOR</th>
+        <th style="text-align:left;">FRENTISTA RESPONSÁVEL</th>
+      </tr></thead>
+      <tbody>${despesasHtml}</tbody>
+    </table>
+
+    <div class="print-section-title">RESUMO INDIVIDUAL</div>
+    <table class="print-table" style="margin-bottom:16px;width:100%;">
+      <thead><tr>
+        <th style="text-align:left;">FRENTISTA</th>
+        <th style="text-align:right;">VENDA SISTEMA</th>
+        <th style="text-align:right;">CARTÃO</th>
+        <th style="text-align:right;">MOEDA</th>
+        <th style="text-align:right;">NOTA</th>
+        <th style="text-align:right;">DESPESA</th>
+        <th style="text-align:right;">TOTAL</th>
+        <th style="text-align:right;">DIFERENÇA</th>
+      </tr></thead>
+      <tbody>${indivRows}</tbody>
+    </table>
+
+    <div class="print-footer">Impresso em ${now} · Posto Parada Angélica · Sistema de Fechamento v3.0</div>
+  `;
+  document.getElementById('print-content').innerHTML=html;
+}
+
+function startFren(){fCode='';fShiftInfo=null;fNome='';document.getElementById('join-code').value='';document.getElementById('join-error').classList.add('hidden');buscarTurnosAbertos();}
+function buscarTurnosAbertos(){showScreen('screen-fren-listar');document.getElementById('fren-listar-loading').style.display='block';document.getElementById('fren-listar-empty').style.display='none';document.getElementById('fren-turnos-list').innerHTML='';const _n=new Date();apiPost({tipo:'LISTAR_TURNOS',status:'ABERTO'}).then(res=>{document.getElementById('fren-listar-loading').style.display='none';const turnos=(res.turnos||[]);if(turnos.length===0){document.getElementById('fren-listar-empty').style.display='block';return;}const cont=document.getElementById('fren-turnos-list');turnos.forEach(t=>{const card=document.createElement('div');card.className='role-card';card.style.cssText='cursor:pointer;margin-bottom:12px;';card.innerHTML=`<div class="role-icon">${t.tipo==='GNV'?'🔥':'🛢️'}</div><div class="role-title">${t.tipo} · ${t.turno}° Turno</div><div class="role-subtitle">Resp: ${t.responsavel||'—'}</div>`;card.onclick=()=>entrarTurnoLista(t.code);cont.appendChild(card);});}).catch(()=>{document.getElementById('fren-listar-loading').style.display='none';document.getElementById('fren-listar-empty').style.display='block';});}
+function entrarTurnoLista(code){showLoading('Carregando turno...');apiGet(code).then(data=>{hideLoading();if(data.error){alert('Turno não encontrado');return;}fCode=code;fShiftInfo=data;renderFrenSelect();}).catch(err=>{hideLoading();alert('Erro: '+err.message);}); }
+function joinTurno(){const code=document.getElementById('join-code').value.toUpperCase().trim();if(!code||code.length!==6){showError('join-error','Digite um código válido com 6 caracteres');return;}showLoading('Buscando turno...');apiGet(code).then(data=>{hideLoading();if(data.error){showError('join-error','Turno não encontrado');}else{fCode=code;fShiftInfo=data;renderFrenSelect();}}).catch(err=>{hideLoading();showError('join-error','Erro: '+err.message);});}
+function showError(elemId,msg){const el=document.getElementById(elemId);el.textContent=msg;el.classList.remove('hidden');}
+function renderFrenSelect(){const infoCont=document.getElementById('fren-shift-info');infoCont.innerHTML=`<div style="font-size:14px;"><strong>${fShiftInfo.tipo} · Turno ${fShiftInfo.turno}°</strong><br>${fShiftInfo.data}</div>`;const listCont=document.getElementById('fren-list');listCont.innerHTML='';fShiftInfo.equipe.forEach(name=>{const submitted=fShiftInfo.submissions.find(s=>s.nome===name);const card=document.createElement('div');card.className='team-member';card.style.cursor='pointer';const avatar=document.createElement('div');avatar.className='member-avatar';avatar.textContent=getInitials(name);const info=document.createElement('div');info.className='member-info';const nameEl=document.createElement('div');nameEl.className='member-name';nameEl.textContent=name;const status=document.createElement('div');status.className='member-status'+(submitted?' status-sent':' status-pending');status.textContent=submitted?'✅ Já enviado':'📝 Toque para preencher';info.appendChild(nameEl);info.appendChild(status);card.appendChild(avatar);card.appendChild(info);card.onclick=()=>{openFrenForm(name);};listCont.appendChild(card);});showScreen('screen-fren-select');}
+function openFrenForm(nome){fNome=nome;openEmpForm(nome,'fren');}
+function openEmpForm(nome,context){
+  empFormContext=context;efMaquina='';efPumps={};efDinheiro=0;efSangrias=[];efCartoes=[];efNotasList=[];efLinxTotal=0;efDespesasList=[];efTotalVendido=0;efTotalRecebido=0;efDiferenca=0;
+  document.getElementById('emp-nome').value=nome;
+  document.getElementById('emp-form-name').textContent=nome;
+  const machineSelect=document.getElementById('emp-maquina');
+  const tipo=empFormContext==='resp'?rTipo:fShiftInfo.tipo;
+  const options=tipo==='GNV'?['470','274','003']:['142','915','881'];
+  machineSelect.innerHTML='<option value="">Selecione...</option>';
+  options.forEach(opt=>{const o=document.createElement('option');o.value=opt;o.textContent=opt;machineSelect.appendChild(o);});
+  document.getElementById('emp-dinheiro').value=0;
+  const linxMapFren=fShiftInfo?.extras?.linxPorFrentista||{};
+  const linxMapResp=rExtras?.linxPorFrentista||rMonitorData?.extras?.linxPorFrentista||{};
+  const linxMap=empFormContext==='fren'?linxMapFren:linxMapResp;
+  const linxSessao=parseFloat(linxMap[nome])||0;
+  efLinxTotal=linxSessao;
+  document.getElementById('emp-linx').value=linxSessao>0?fmt(linxSessao):'Não informado pelo responsável';
+  document.getElementById('cartoes-section').innerHTML='';
+  document.getElementById('notas-section').innerHTML='';
+  document.getElementById('sangrias-section').innerHTML='';
+  document.getElementById('despesas-section').innerHTML='';
+  if(context==='resp'){document.getElementById('emp-form-back').onclick=()=>{showScreen('screen-monitor');};}
+  else{document.getElementById('emp-form-back').onclick=()=>{showScreen('screen-fren-select');};}
+  showScreen('screen-emp-form');
+}
+// ── Sangrias ──
+function addSangriaRow(valor){efSangrias.push({valor:valor});renderSangrias();recalcForm();}
+function renderSangrias(){const cont=document.getElementById('sangrias-section');cont.innerHTML='';efSangrias.forEach((s,idx)=>{const row=document.createElement('div');row.className='cartao-row';const inp=document.createElement('input');inp.type='number';inp.value=s.valor||0;inp.placeholder='0.00';inp.onchange=()=>{efSangrias[idx].valor=parseFloat(inp.value)||0;recalcForm();};const btn=document.createElement('button');btn.className='remove-row-btn';btn.textContent='✕';btn.onclick=()=>{efSangrias.splice(idx,1);renderSangrias();recalcForm();};row.appendChild(inp);row.appendChild(btn);cont.appendChild(row);});}
+// ── Despesas ──
+function addDespesaRow(valor,desc){efDespesasList.push({valor:valor,desc:desc});renderDespesas();recalcForm();}
+function renderDespesas(){const cont=document.getElementById('despesas-section');cont.innerHTML='';efDespesasList.forEach((d,idx)=>{const row=document.createElement('div');row.style.cssText='display:flex;flex-direction:column;gap:4px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px;padding:8px;background:#fafafa;';const topRow=document.createElement('div');topRow.style.cssText='display:flex;gap:6px;align-items:center;';const vInp=document.createElement('input');vInp.type='number';vInp.value=d.valor||0;vInp.placeholder='Valor (R$)';vInp.style.cssText='width:110px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;';vInp.onchange=()=>{efDespesasList[idx].valor=parseFloat(vInp.value)||0;recalcForm();};const btn=document.createElement('button');btn.style.cssText='background:#ef4444;color:white;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;min-width:32px;margin-left:auto;';btn.textContent='✕';btn.onclick=()=>{efDespesasList.splice(idx,1);renderDespesas();recalcForm();};topRow.appendChild(vInp);topRow.appendChild(btn);const dInp=document.createElement('input');dInp.type='text';dInp.value=d.desc||'';dInp.placeholder='Descrição da despesa (ex: Caminhão, Material...)';dInp.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;';dInp.oninput=()=>{efDespesasList[idx].desc=dInp.value;};row.appendChild(topRow);row.appendChild(dInp);cont.appendChild(row);});}
+// ── Desbloquear turno ──
+function desbloquearTurno(){showLoading('Desbloqueando turno...');apiPost({tipo:'DESBLOQUEAR_TURNO',code:rCode}).then(res=>{hideLoading();if(res.status==='ok'){alert('Turno desbloqueado! Os frentistas já podem entrar.');refreshMonitor();}else{alert('Erro: '+res.error);}}).catch(err=>{hideLoading();alert('Erro: '+err.message);});}
+function addCartaoRow(tipo,valor){efCartoes.push({tipo:tipo,valor:valor});renderCartoes();recalcForm();}
+function addNotaRow(cliente,valor){efNotasList.push({cliente:cliente,valor:valor});renderNotas();recalcForm();}
+function renderCartoes(){const cont=document.getElementById('cartoes-section');cont.innerHTML='';const tipo=empFormContext==='resp'?rTipo:fShiftInfo.tipo;const cartoesOpts=tipo==='GNV'?['CIELO CRÉDITO','CIELO DÉBITO','CIELO PIX','CIELO VOUCHER']:['REDE CRÉDITO','REDE DÉBITO','REDE PIX','REDE VOUCHER','FITCARD','SHELL BOX'];efCartoes.forEach((cartao,idx)=>{const row=document.createElement('div');row.className='cartao-row';const tipoSelect=document.createElement('select');cartoesOpts.forEach(opt=>{const o=document.createElement('option');o.value=opt;o.textContent=opt;tipoSelect.appendChild(o);});// Definir valor APÓS adicionar opções; usar primeiro da lista se tipo vazio
+tipoSelect.value=cartao.tipo||cartoesOpts[0];efCartoes[idx].tipo=tipoSelect.value;tipoSelect.onchange=()=>{efCartoes[idx].tipo=tipoSelect.value;};const valorInput=document.createElement('input');valorInput.type='number';valorInput.value=cartao.valor;valorInput.placeholder='0.00';valorInput.onchange=()=>{efCartoes[idx].valor=parseFloat(valorInput.value)||0;recalcForm();};const removeBtn=document.createElement('button');removeBtn.className='remove-row-btn';removeBtn.textContent='✕';removeBtn.onclick=()=>{efCartoes.splice(idx,1);renderCartoes();recalcForm();};row.appendChild(tipoSelect);row.appendChild(valorInput);row.appendChild(removeBtn);cont.appendChild(row);});}
+function renderNotas(){const cont=document.getElementById('notas-section');cont.innerHTML='';efNotasList.forEach((nota,idx)=>{const row=document.createElement('div');row.className='cartao-row';const clienteSelect=document.createElement('select');clienteSelect.value=nota.cliente;const opt0=document.createElement('option');opt0.value='';opt0.textContent='Selecione...';clienteSelect.appendChild(opt0);DEFAULT_CLIENTS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;clienteSelect.appendChild(o);});clienteSelect.onchange=()=>{efNotasList[idx].cliente=clienteSelect.value;};const valorInput=document.createElement('input');valorInput.type='number';valorInput.value=nota.valor;valorInput.placeholder='0.00';valorInput.onchange=()=>{efNotasList[idx].valor=parseFloat(valorInput.value)||0;recalcForm();};const removeBtn=document.createElement('button');removeBtn.className='remove-row-btn';removeBtn.textContent='✕';removeBtn.onclick=()=>{efNotasList.splice(idx,1);renderNotas();recalcForm();};row.appendChild(clienteSelect);row.appendChild(valorInput);row.appendChild(removeBtn);cont.appendChild(row);});}
+function recalcForm(){efTotalVendido=efLinxTotal;const sangriaTotal=efSangrias.reduce((s,x)=>s+(parseFloat(x.valor)||0),0);let cartTotal=efCartoes.reduce((s,c)=>s+(parseFloat(c.valor)||0),0);let notaTotal=efNotasList.reduce((s,n)=>s+(parseFloat(n.valor)||0),0);const despTotal=efDespesasList.reduce((s,d)=>s+(parseFloat(d.valor)||0),0);efTotalRecebido=efDinheiro+sangriaTotal+cartTotal+notaTotal+despTotal;efDiferenca=efTotalRecebido-efTotalVendido;document.getElementById('resultado-linx').textContent=fmt(efLinxTotal);document.getElementById('resultado-recebido').textContent=fmt(efTotalRecebido);const difRow=document.getElementById('resultado-dif-row');difRow.classList.remove('ok','error');if(Math.abs(efDiferenca)<0.01){difRow.classList.add('ok');}else{difRow.classList.add('error');}document.getElementById('resultado-dif').textContent=fmt(efDiferenca);}
+function saveEmpForm(){if(!efMaquina){alert('Selecione a máquina');return;}const tipo=empFormContext==='resp'?rTipo:fShiftInfo.tipo;const despTotal=efDespesasList.reduce((s,d)=>s+(parseFloat(d.valor)||0),0);showLoading('Enviando dados...');const code=empFormContext==='resp'?rCode:fCode;apiPost({tipo:'FRENTISTA_SUBMIT',code:code,nome:document.getElementById('emp-nome').value,maquina:efMaquina,pumps:efPumps,dinheiro:efDinheiro,sangrias:efSangrias,cartoes:efCartoes,notas:efNotasList,linxTotal:efLinxTotal,despesas:despTotal,despesasDetalhadas:efDespesasList,totalVendido:efTotalVendido,totalRecebido:efTotalRecebido,diferenca:efDiferenca}).then(res=>{hideLoading();if(res.status==='ok'){if(empFormContext==='resp'){goToMonitor();}else{showSuccess('Enviado!','Seu fechamento foi registrado. Aguarde o responsável fechar o turno.');}}else{alert('Erro: '+res.error);}}).catch(err=>{hideLoading();alert('Erro: '+err.message);});}
+function empFormBack(){document.getElementById('emp-form-back').click();}
+function showSuccess(title,msg){document.getElementById('success-title').textContent=title;document.getElementById('success-message').textContent=msg;showScreen('screen-success');}
+async function apiGet(code){return await apiPost({tipo:'GET_SESSAO',code:code});}
+async function apiPost(data){const res=await fetch(scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data),redirect:'follow'});return await res.json();}
+function showConfirm(title,msg,onConfirm){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-message').textContent=msg;pendingAction=onConfirm;document.getElementById('confirm-modal').classList.add('active');}
+function closeConfirm(){document.getElementById('confirm-modal').classList.remove('active');pendingAction=null;}
+function confirmAction(){const action=pendingAction;closeConfirm();if(action){action();}}
+document.addEventListener('DOMContentLoaded',()=>{populateEmpDropdown('resp-select');});
+</script>
+
+</body>
+</html>
